@@ -12,8 +12,10 @@ def descargar_precios(inicio: str) -> pd.DataFrame:
     """Devuelve un DataFrame con fechas como índice y una columna por metal."""
     # 1. Pedir los datos a Yahoo
     datos = yf.download(["HG=F", "ALI=F", "HRC=F"], start=inicio, progress=False)
+    if datos is None:
+        raise ValueError("No se han podido descargar los precios de Yahoo Finance")
     # 2. Solo nos interesa el cierre
-    datos = datos["Close"]
+    datos = pd.DataFrame(datos["Close"])
     # 3. Poner nombres legibles
     datos = datos.rename(columns={"HG=F": "Cobre", "ALI=F": "Aluminio", "HRC=F": "Acero"})
     # 4. Quitar días incompletos
