@@ -3,6 +3,7 @@ import pandas as pd
 from matplotlib.figure import Figure
 
 from src.backtest import VENTANA, var_fhs
+from src.correlaciones import correlacion_movil
 from src.data import descargar_precios
 from src.riesgo import calcular_rentabilidades, quitar_rolls, volatilidad_movil
 
@@ -10,6 +11,8 @@ from src.riesgo import calcular_rentabilidades, quitar_rolls, volatilidad_movil
 COLORES = {"Cobre": "#2a78d6", "Aluminio": "#eb6834", "Acero": "#1baf7a"}
 GRIS = "#898781"  # para datos secundarios
 ROJO_ALERTA = "#d03b3b"  # solo para avisos (excepciones del VaR), nunca para un metal
+# Las parejas son algo distinto de los metales, así que llevan otros colores
+COLORES_PAREJAS = {"Cobre-Aluminio": "#eda100", "Cobre-Acero": "#e87ba4", "Aluminio-Acero": "#008300"}
 
 
 def grafico_volatilidad_movil(vol_movil: pd.DataFrame) -> Figure:
@@ -65,6 +68,23 @@ def grafico_backtest(rent: pd.Series, umbral_var: pd.Series, metal: str) -> Figu
     return fig
 
 
+def grafico_correlacion_movil(movil: pd.DataFrame) -> Figure:
+    """Gráfico de líneas de la correlación móvil de cada pareja de metales."""
+    fig, ax = plt.subplots(figsize=(11, 5))
+    for pareja in movil.columns:
+        ax.plot(movil.index, movil[pareja], label=pareja, color=COLORES_PAREJAS[pareja], linewidth=1.5)
+    ax.axhline(0, color=GRIS, linewidth=1)
+    ax.set_ylim(-1, 1)
+    ax.set_title("Correlación móvil entre metales (ventana de 3 meses)")
+    ax.set_ylabel("Correlación")
+    ax.grid(alpha=0.3)
+    ax.legend(loc="lower left")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    fig.tight_layout()
+    return fig
+
+
 if __name__ == "__main__":
     precios = descargar_precios("2020-01-01")
     rent = quitar_rolls(calcular_rentabilidades(precios))
@@ -78,5 +98,8 @@ if __name__ == "__main__":
     cobre = rent["Cobre"]
     fig_bt = grafico_backtest(cobre[inicio:], var_fhs(cobre)[inicio:], "Cobre")
     fig_bt.savefig("backtest_cobre.png", dpi=150)
+
+    fig_corr = grafico_correlacion_movil(correlacion_movil(rent))
+    fig_corr.savefig("correlacion_movil.png", dpi=150)
 
     plt.show()

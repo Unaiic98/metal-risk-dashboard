@@ -13,7 +13,7 @@ pensado para empresas que compran o venden metal y quieren medir y cubrir su exp
 -  Volatilidad anualizada histórica y móvil
 -  Value at Risk (histórico, paramétrico, Monte Carlo y simulación histórica filtrada) y Expected Shortfall
 -  Backtesting del VaR con el test de Kupiec
-- 🔜 Correlaciones entre metales
+-  Correlaciones entre metales
 - 🔜 Simulador de coberturas con futuros
 - 🔜 Aplicación web en Streamlit
 
