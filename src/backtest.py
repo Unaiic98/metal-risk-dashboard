@@ -6,14 +6,13 @@ import pandas as pd
 from src.data import descargar_precios
 from src.riesgo import calcular_rentabilidades, quitar_rolls
 
-VENTANA = 250  # días de historia que se usan para calcular el VaR de cada día (~1 año)
-LAMBDA_EWMA = 0.94  # peso de la memoria en EWMA (valor estándar de RiskMetrics)
+VENTANA = 250  
+LAMBDA_EWMA = 0.94  
 
 
 def var_historico_movil(rent: pd.Series, confianza: float = 0.99) -> pd.Series:
     """Para cada día, el umbral de VaR calculado SOLO con los 250 días anteriores."""
     umbral = rent.rolling(VENTANA, min_periods=200).quantile(1 - confianza)
-    # shift(1): el VaR de hoy solo puede usar datos hasta AYER
     return umbral.shift(1)
 
 
@@ -25,12 +24,31 @@ def var_parametrico_movil(rent: pd.Series, confianza: float = 0.99) -> pd.Series
     return (media + z * desviacion).shift(1)
 
 
+def volatilidad_ewma(rent: pd.Series) -> pd.Series:
+    """Volatilidad EWMA prevista para cada día, usando solo datos hasta el día anterior."""
+    varianza = (rent**2).ewm(alpha=1 - LAMBDA_EWMA, adjust=False).mean()
+    volatilidad = (varianza**0.5).shift(1)
+    return volatilidad.where(volatilidad > 0)
+
+
 def var_ewma(rent: pd.Series, confianza: float = 0.99) -> pd.Series:
     """VaR normal con volatilidad EWMA: los días recientes pesan más que los antiguos."""
     z = NormalDist().inv_cdf(1 - confianza)
-    varianza = (rent**2).ewm(alpha=1 - LAMBDA_EWMA, adjust=False).mean()
-    volatilidad = varianza**0.5
-    return (z * volatilidad).shift(1)
+    return z * volatilidad_ewma(rent)
+
+
+def var_fhs(rent: pd.Series, confianza: float = 0.99) -> pd.Series:
+    """Simulación histórica filtrada: días pasados reescalados a la volatilidad de hoy.
+
+    1. Se "filtra" cada día pasado dividiéndolo por la volatilidad que había entonces.
+       Un -6% en un día de volatilidad 3% cuenta como "-2 veces la volatilidad".
+    2. Se busca el 1% peor de esos días filtrados (los 250 anteriores).
+    3. Se multiplica por la volatilidad prevista para hoy.
+    """
+    volatilidad = volatilidad_ewma(rent)
+    filtradas = rent / volatilidad
+    peor_filtrada = filtradas.rolling(VENTANA, min_periods=200).quantile(1 - confianza).shift(1)
+    return peor_filtrada * volatilidad
 
 
 def test_kupiec(excepciones: int, dias: int, confianza: float) -> float:
@@ -47,7 +65,6 @@ def test_kupiec(excepciones: int, dias: int, confianza: float) -> float:
     else:
         log_real = (dias - excepciones) * math.log(1 - tasa) + excepciones * math.log(tasa)
     estadistico = -2 * (log_modelo - log_real)
-    # p-valor de una chi-cuadrado con 1 grado de libertad
     return math.erfc(math.sqrt(estadistico / 2))
 
 
@@ -76,6 +93,7 @@ if __name__ == "__main__":
         "Histórico": var_historico_movil,
         "Paramétrico": var_parametrico_movil,
         "EWMA": var_ewma,
+        "FHS": var_fhs,
     }
 
     # Para comparar en igualdad de condiciones, todos empiezan el mismo día

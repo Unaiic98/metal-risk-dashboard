@@ -7,16 +7,15 @@ pensado para empresas que compran o venden metal y quieren medir y cubrir su exp
 
 ## Qué hace
 
-- Descarga precios diarios de futuros desde 2020 (Yahoo Finance)
+-  Descarga precios diarios de futuros desde 2020 (Yahoo Finance)
 -  Calcula rentabilidades logarítmicas diarias
 -  Detecta y excluye los días de cambio de contrato (*roll*) de los futuros continuos
 -  Volatilidad anualizada histórica y móvil
--  Value at Risk (histórico, paramétrico y Monte Carlo)
--  Correlaciones entre metales
-- Simulador de coberturas con futuros
--  Aplicación web en Streamlit
-
-
+-  Value at Risk (histórico, paramétrico, Monte Carlo y simulación histórica filtrada) y Expected Shortfall
+-  Backtesting del VaR con el test de Kupiec
+- 🔜 Correlaciones entre metales
+- 🔜 Simulador de coberturas con futuros
+- 🔜 Aplicación web en Streamlit
 
 ## Estructura
 
@@ -24,6 +23,8 @@ pensado para empresas que compran o venden metal y quieren medir y cubrir su exp
 src/
 ├── data.py       # Descarga y limpieza de precios
 ├── riesgo.py     # Rentabilidades, detección de rolls y volatilidad
+├── var.py        # VaR y Expected Shortfall
+├── backtest.py   # Backtesting del VaR (test de Kupiec)
 └── graficos.py   # Gráficos
 ```
 
@@ -33,8 +34,10 @@ src/
 python -m venv .venv
 .venv\Scripts\activate          # Windows  (Mac/Linux: source .venv/bin/activate)
 pip install -r requirements.txt
-python -m src.riesgo            # resultados en la terminal
-python -m src.graficos          # gráfico de volatilidad
+python -m src.riesgo            # volatilidad
+python -m src.var               # VaR y Expected Shortfall
+python -m src.backtest          # backtesting del VaR
+python -m src.graficos          # gráficos
 ```
 
 ## Resultados (enero 2020 – noviembre 2026)
@@ -44,6 +47,41 @@ python -m src.graficos          # gráfico de volatilidad
 | Cobre | `HG=F` (USD/libra) | 27,2% | 101,9% (julio 2025, aranceles de EE. UU.) |
 | Aluminio | `ALI=F` (USD/tonelada métrica) | 23,0% | 53,6% (marzo 2022) |
 | Acero | `HRC=F` (USD/tonelada corta) | 12,9% | 48,7% (marzo 2022) |
+
+## Value at Risk
+
+VaR a 1 día al 99% para una posición de 1.000.000 USD en cada metal (enero 2020 – noviembre 2026):
+
+| Metal | Histórico | Paramétrico (normal) | Expected Shortfall |
+|---|---|---|---|
+| Cobre | 43.155 | 38.680 | 62.586 |
+| Aluminio | 35.388 | 32.811 | 45.442 |
+| Acero | 22.515 | 18.913 | 31.197 |
+
+Al 99%, el VaR histórico supera al paramétrico en los tres metales (en el acero, un 19%):
+las rentabilidades tienen **colas más gruesas que una distribución normal**, así que el VaR normal
+infravalora el riesgo justo en los días extremos. El Expected Shortfall del cobre es un 45% mayor
+que su VaR (con una normal sería un ~15%), otra señal de colas gruesas.
+
+### Backtesting
+
+Cada día se calcula el VaR al 99% usando solo los 250 días anteriores (sin información futura) y se
+cuentan las **excepciones**: días en que la pérdida real superó el VaR previsto. Un buen modelo debería
+tener alrededor de un 1% de excepciones. El test de Kupiec rechaza el modelo si p < 0,05.
+
+| Metal | Histórico | Paramétrico | EWMA | Simulación histórica filtrada (FHS) |
+|---|---|---|---|---|
+| Cobre (esperadas: 14,8) | 23 ❌ | 25 ❌ | 26 ❌ | **17 ✅** |
+| Aluminio (esperadas: 14,1) | 23 ❌ | 28 ❌ | 20 ✅ | **20 ✅** |
+| Acero (esperadas: 14,1) | 17 ✅ | 19 ✅ | 31 ❌ | **14 ✅** |
+
+- **Histórico y paramétrico** reaccionan tarde a los cambios bruscos de volatilidad (como los aranceles de 2025).
+- **EWMA** se adapta rápido, pero supone una distribución normal; en el acero falla porque los días sin movimiento
+  hacen que la volatilidad estimada caiga demasiado.
+- **FHS** reescala cada día pasado a la volatilidad actual: se adapta como la EWMA y conserva las colas reales como
+  el histórico. **Es el único método que aprueba en los tres metales**, por lo que es el que usa el panel.
+
+![Backtesting del VaR del cobre](backtest_cobre.png)
 
 ## Datos y limitaciones
 
@@ -70,6 +108,7 @@ El salto de precio entre ambos aparece en la serie como si fuera una rentabilida
 - Los datos de 2018–2019 del aluminio presentan largos periodos sin movimiento de precio y se descartan:
   el análisis empieza en 2020.
 - Los futuros de COMEX son una referencia estadounidense; en Europa la referencia habitual es la London Metal Exchange (LME).
+- El test de Kupiec solo comprueba **cuántas** excepciones hay, no si llegan agrupadas en el tiempo.
 
 **Los extremos del cobre son reales**, no errores de datos:
 
