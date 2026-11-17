@@ -2,16 +2,17 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.figure import Figure
 
-from src.backtest import VENTANA, var_fhs
+from src.coberturas import curva_cobertura
 from src.correlaciones import correlacion_movil
 from src.data import descargar_precios
+from src.backtest import VENTANA, var_fhs
 from src.riesgo import calcular_rentabilidades, quitar_rolls, volatilidad_movil
 
 # Un color fijo por metal: el cobre siempre azul, en todos los gráficos
 COLORES = {"Cobre": "#2a78d6", "Aluminio": "#eb6834", "Acero": "#1baf7a"}
 GRIS = "#898781"  # para datos secundarios
 ROJO_ALERTA = "#d03b3b"  # solo para avisos (excepciones del VaR), nunca para un metal
-# Las parejas son algo distinto de los metales, así que llevan otros colores
+# Las parejas son otra cosa distinta de los metales, así que llevan otros colores
 COLORES_PAREJAS = {"Cobre-Aluminio": "#eda100", "Cobre-Acero": "#e87ba4", "Aluminio-Acero": "#008300"}
 
 
@@ -85,6 +86,24 @@ def grafico_correlacion_movil(movil: pd.DataFrame) -> Figure:
     return fig
 
 
+def grafico_curva_cobertura(curvas: dict[str, pd.DataFrame]) -> Figure:
+    """VaR de un stock según el porcentaje cubierto con futuros, una línea por metal."""
+    fig, ax = plt.subplots(figsize=(11, 5))
+    for metal, curva in curvas.items():
+        ax.plot(curva.index, curva["VaR"] / 1000, label=metal, color=COLORES[metal], linewidth=2, marker="o", markersize=4)
+    ax.axvline(100, color=GRIS, linewidth=1, linestyle="--")
+    ax.set_title("VaR al 99% a 1 mes de un stock de 1 M USD según el % cubierto con futuros")
+    ax.set_xlabel("Porcentaje del stock cubierto con futuros (%)")
+    ax.set_ylabel("VaR (miles de USD)")
+    ax.set_ylim(bottom=0)
+    ax.grid(alpha=0.3)
+    ax.legend()
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    fig.tight_layout()
+    return fig
+
+
 if __name__ == "__main__":
     precios = descargar_precios("2020-01-01")
     rent = quitar_rolls(calcular_rentabilidades(precios))
@@ -101,5 +120,9 @@ if __name__ == "__main__":
 
     fig_corr = grafico_correlacion_movil(correlacion_movil(rent))
     fig_corr.savefig("correlacion_movil.png", dpi=150)
+
+    curvas = {metal: curva_cobertura(rent[metal], 1_000_000.0) for metal in ["Cobre", "Aluminio", "Acero"]}
+    fig_cob = grafico_curva_cobertura(curvas)
+    fig_cob.savefig("curva_cobertura.png", dpi=150)
 
     plt.show()
