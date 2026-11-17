@@ -21,7 +21,7 @@ def quitar_rolls_acero(rent: pd.DataFrame) -> pd.DataFrame:
     """
     fechas = pd.DatetimeIndex(rent.index)
     # 1. ¿Es miércoles? (lunes=0, martes=1, miércoles=2...)
-    es_miercoles = fechas.weekday == 2
+    es_miercoles = fechas.day_of_week == 2
     # 2. ¿Es la última semana del mes? Si dentro de 7 días ya es otro mes, sí
     ultima_semana = (fechas + pd.Timedelta(days=7)).month != fechas.month
     # 3. Último miércoles = las dos condiciones a la vez
