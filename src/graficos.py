@@ -3,7 +3,7 @@ import pandas as pd
 from matplotlib.figure import Figure
 
 from src.data import descargar_precios
-from src.riesgo import calcular_rentabilidades, quitar_rolls_acero, volatilidad_movil
+from src.riesgo import calcular_rentabilidades, quitar_rolls, volatilidad_movil
 
 # Un color fijo por metal: el cobre siempre azul, en todos los gráficos
 COLORES = {"Cobre": "#2a78d6", "Aluminio": "#eb6834", "Acero": "#1baf7a"}
@@ -34,8 +34,8 @@ def grafico_volatilidad_movil(vol_movil: pd.DataFrame) -> Figure:
 
 
 if __name__ == "__main__":
-    precios = descargar_precios("2018-01-01")
-    rent = quitar_rolls_acero(calcular_rentabilidades(precios))
+    precios = descargar_precios("2020-01-01")
+    rent = quitar_rolls(calcular_rentabilidades(precios))
     vol_movil = volatilidad_movil(rent)
 
     fig = grafico_volatilidad_movil(vol_movil)
