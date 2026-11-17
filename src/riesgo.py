@@ -3,6 +3,8 @@ import pandas as pd
 
 from src.data import descargar_precios
 
+DIAS_HABILES_ANO = 252
+
 
 def calcular_rentabilidades(precios: pd.DataFrame) -> pd.DataFrame:
     """Rentabilidad logarítmica diaria de cada metal."""
@@ -32,19 +34,28 @@ def quitar_rolls_acero(rent: pd.DataFrame) -> pd.DataFrame:
     return rent
 
 
+def volatilidad_anual(rent: pd.DataFrame) -> pd.Series:
+    """Volatilidad anualizada de cada metal (desviación típica diaria × √252)."""
+    return rent.std() * np.sqrt(DIAS_HABILES_ANO)
+
+
+def volatilidad_movil(rent: pd.DataFrame, ventana: int = 21) -> pd.DataFrame:
+    """Volatilidad anualizada calculada sobre los últimos 'ventana' días, día a día."""
+    vol = rent.rolling(window=ventana, min_periods=15).std()
+    return vol * np.sqrt(DIAS_HABILES_ANO)
+
+
 if __name__ == "__main__":
     precios = descargar_precios("2018-01-01")
-    rent = calcular_rentabilidades(precios)
-    rent_limpia = quitar_rolls_acero(rent)
+    rent = quitar_rolls_acero(calcular_rentabilidades(precios))
 
-    print("Días de roll eliminados en el acero:", rent_limpia["Acero"].isna().sum())
+    print("Volatilidad anual (%):")
+    print((volatilidad_anual(rent) * 100).round(1))
 
-    print("\nDesviación típica diaria ANTES:")
-    print(rent.std())
-    print("\nDesviación típica diaria DESPUÉS:")
-    print(rent_limpia.std())
-
-    acero = rent_limpia["Acero"]
-    saltos = acero[acero.abs() > 0.08]
-    print(f"\nAcero: {len(saltos)} días con |rentabilidad| > 8% tras limpiar")
-    print(saltos)
+    vol_movil = volatilidad_movil(rent)
+    print("\nVolatilidad móvil MÁXIMA (%):")
+    print((vol_movil.max() * 100).round(1))
+    print("\nFecha de la volatilidad móvil máxima:")
+    print(vol_movil.idxmax())
+    print("\nVolatilidad móvil HOY (%):")
+    print((vol_movil.iloc[-1] * 100).round(1))
