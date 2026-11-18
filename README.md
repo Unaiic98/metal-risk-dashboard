@@ -3,7 +3,7 @@
 Panel de riesgo de precio de metales industriales (cobre, aluminio y acero) en Python,
 pensado para empresas que compran o venden metal y quieren medir y cubrir su exposición al precio.
 
-👉 **[Probar la app](ENLACE_A_LA_APP)**
+👉 **[Probar la app](https://metal-risk-dashboard.streamlit.app/)**
 
 ![Volatilidad anualizada móvil](volatilidad_movil.png)
 
